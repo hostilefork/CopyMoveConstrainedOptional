@@ -221,12 +221,24 @@ union literal_optional_storage
   unsigned char for_value_init;
   typename std::remove_cv<T>::type actual_data;
   constexpr literal_optional_storage(no_init_t) : for_value_init() {}
-  template<class... Args>
-  constexpr literal_optional_storage(Args&&... args) : actual_data(std::forward<Args>(args)...) {}
+  // generation of default copy constructor of raw data requires we have handling
+  // for literal_optional_storage(literal_optional_storage&) - a catch-all forwarding
+  // constructor cannot differentiate between initializing the actual_data member
+  // and that case.
+  template<typename FirstArg, class... RestArgs>
+  constexpr literal_optional_storage(typename std::enable_if<(sizeof...(RestArgs) > 0) and not std::is_convertible<literal_optional_storage, FirstArg>::value, FirstArg>::type firstarg, RestArgs&&... restargs) :
+      actual_data(firstarg, std::forward<RestArgs>(restargs)...) {}
+  constexpr literal_optional_storage(literal_optional_storage const & other) : actual_data(other.actual_data) {}
 };
 
+// http://stackoverflow.com/questions/12702103/writing-code-that-works-when-has-trivial-destructor-is-defined-instead-of-is
+#ifdef TRIVIAL_DESTRUCTOR_TYPE_TRAIT_NOT_STANDARD
+template<class T>
+using is_trivially_destructible = std::has_trivial_destructor<T>;
+#else
 template<class T>
 using is_trivially_destructible = std::is_trivially_destructible<T>;
+#endif
 
 static_assert(is_trivially_destructible<int>::value, "");
 static_assert(is_trivially_destructible<optional_storage<int>>::value, "");
@@ -331,9 +343,9 @@ class optional_data<T, true>
 public:
   constexpr optional_data() noexcept : is_init_(false), raw_data_(no_init) {}
 
-  constexpr optional_data(const optional_data&) = default;
+  constexpr optional_data(const optional_data&) : is_init_(false), raw_data_(no_init) {}
 
-  constexpr optional_data(optional_data&&) = default;
+  constexpr optional_data(optional_data&&) : is_init_(false), raw_data_(no_init) {}
 
   optional_data& operator=(const optional_data&) = default;
 
@@ -668,6 +680,18 @@ public:
   {
     return this->is_initialized();
   }
+
+    // if a move-only type is contained inside of an optional, the optional becomes
+    // move-only.  However, it is still possible to dereference and get the contained
+    // movable type...then move it out from under the optional without it being
+    // "notified".  the extract method lets you perform a dereference-and-move while
+    // setting the optional to none.  How to handle this situation should be reviewed.
+    inline T extract() noexcept {
+        assert(this->is_initialized());
+        T result (std::move(this->data()));
+        this->destroy();
+        return result;
+    }
 
   void swap(optional& rhs) noexcept(
     and_<is_nothrow_swappable<T>,
