@@ -1,6 +1,7 @@
-
-//#include "optional_2.hpp"
 #include "optional.hpp"
+
+static_assert(xstd::is_trivially_destructible<int>::value, "");
+static_assert(xstd::is_trivially_destructible<xstd::optional<int>>::value, "");
 
 static_assert(std::is_copy_constructible<xstd::optional<int>>::value, "Error");
 static_assert(std::is_move_constructible<xstd::optional<int>>::value, "Error");
