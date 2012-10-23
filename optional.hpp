@@ -1,7 +1,7 @@
 #ifndef OPTIONAL_HPP_INCLUDED
 #define OPTIONAL_HPP_INCLUDED
 
-// Copyright 2011 Daniel Kr&uuml;gler.
+// Copyright 2011-2012 Daniel Kr&uuml;gler.
 // Distributed under the Boost Software License, Version 1.0. (See
 // accompanying file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
@@ -230,18 +230,6 @@ union literal_optional_storage
       actual_data(firstarg, std::forward<RestArgs>(restargs)...) {}
   constexpr literal_optional_storage(literal_optional_storage const & other) : actual_data(other.actual_data) {}
 };
-
-// http://stackoverflow.com/questions/12702103/writing-code-that-works-when-has-trivial-destructor-is-defined-instead-of-is
-#ifdef TRIVIAL_DESTRUCTOR_TYPE_TRAIT_NOT_STANDARD
-template<class T>
-using is_trivially_destructible = std::has_trivial_destructor<T>;
-#else
-template<class T>
-using is_trivially_destructible = std::is_trivially_destructible<T>;
-#endif
-
-static_assert(is_trivially_destructible<int>::value, "");
-static_assert(is_trivially_destructible<optional_storage<int>>::value, "");
 
 template<class T, bool = is_trivially_destructible<T>::value>
 class optional_data
