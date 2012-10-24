@@ -182,7 +182,12 @@ static_assert(std::is_constructible<xstd::optional<Foo const>, int>::value, "Err
 static_assert(std::is_convertible<Foo, xstd::optional<Foo const>>::value, "Error");
 static_assert(std::is_convertible<int, xstd::optional<Foo const>>::value, "Error");
 
-static_assert(std::is_trivially_destructible<xstd::optional<Foo const>>::value, "Error");
+static_assert(xstd::is_trivially_destructible<Foo const>::value, "Error");
+static_assert(xstd::is_trivially_copy_constructible<Foo const>::value, "Error");
+static_assert(xstd::is_trivially_copy_assignable<Foo>::value, "Error");
+static_assert(xstd::is_trivially_destructible<xstd::optional<Foo const>>::value, "Error");
+static_assert(xstd::is_trivially_copy_constructible<xstd::optional<Foo const>>::value, "Error");
+static_assert(xstd::is_trivially_copy_assignable<xstd::optional<Foo>>::value, "Error");
 
 class Bar {
   int value;
@@ -209,6 +214,16 @@ static_assert(std::is_convertible<Bar, xstd::optional<Bar const>>::value, "Error
 static_assert(std::is_convertible<int, xstd::optional<Bar const>>::value, "Error");
 
 static_assert(!std::is_trivially_destructible<xstd::optional<Bar const>>::value, "Error");
+
+struct NonTrivTrivDTor {
+  int membar;
+  NonTrivTrivDTor() : membar() {}
+  NonTrivTrivDTor(const NonTrivTrivDTor& rhs) : membar(rhs.membar) {}
+  NonTrivTrivDTor(int v) : membar(v) {}
+};
+
+xstd::optional<NonTrivTrivDTor> nttd1;
+xstd::optional<NonTrivTrivDTor> nttd2(nttd1);
 
 #include <string>
 #include <iostream>

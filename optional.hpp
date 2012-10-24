@@ -20,8 +20,17 @@ namespace xstd {
 template<class>
 class optional;
 
+struct inplace_t {};
+
+constexpr inplace_t inplace{};
+
+struct none_t {};
+
+constexpr none_t none{};
+
 namespace details {
 
+// Enum used as bitmask to flag copy/move capabilities of a type:
 enum class member_policy
 {
   none = 0,
@@ -53,335 +62,106 @@ constexpr member_policy operator~(member_policy x)
   return static_cast<member_policy>(~static_cast<int_type>(x));
 }
 
-template<member_policy, class T, class D>
+// All instantiations of ctor_base are empty, trivial types that have
+// specific move/copy constructors deleted
+template<member_policy>
 struct ctor_base;
 
-template<class T, class D>
-struct ctor_base<member_policy::none, T, D>
+template<>
+struct ctor_base<member_policy::none>
 {
   constexpr ctor_base() noexcept = default;
-  ctor_base(const ctor_base&) = delete;
-  ctor_base(ctor_base&&) = delete;
+  constexpr ctor_base(const ctor_base&) = delete;
+  constexpr ctor_base(ctor_base&&) = delete;
   ctor_base& operator=(const ctor_base&) noexcept = default;
   ctor_base& operator=(ctor_base&&) noexcept = default;
 };
 
-template<class T, class D>
-struct ctor_base<member_policy::move | member_policy::copy, T, D>
+template<>
+struct ctor_base<member_policy::move | member_policy::copy>
 {
   constexpr ctor_base() noexcept = default;
-
-  ctor_base(const ctor_base& rhs) noexcept(std::is_nothrow_copy_constructible<T>::value)
-  {
-    static_cast<D&>(*this).copy_construct(static_cast<const D&>(rhs));
-  }
-
-  ctor_base(ctor_base&& rhs) noexcept(std::is_nothrow_move_constructible<T>::value)
-  {
-    static_cast<D&>(*this).move_construct(std::move(static_cast<D&&>(rhs)));
-  }
-
+  constexpr ctor_base(const ctor_base& rhs) noexcept = default;
+  constexpr ctor_base(ctor_base&& rhs) noexcept = default;
   ctor_base& operator=(const ctor_base&) noexcept = default;
   ctor_base& operator=(ctor_base&&) noexcept = default;
 };
 
-template<class T, class D>
-struct ctor_base<member_policy::copy, T, D>
+template<>
+struct ctor_base<member_policy::copy>
 {
   constexpr ctor_base() noexcept = default;
-
-  ctor_base(const ctor_base& rhs) noexcept(std::is_nothrow_copy_constructible<T>::value)
-  {
-    static_cast<D&>(*this).copy_construct(static_cast<const D&>(rhs));
-  }
-
-  ctor_base(ctor_base&&) = delete;
-
+  constexpr ctor_base(const ctor_base& rhs) noexcept = default;
+  constexpr ctor_base(ctor_base&&) = delete;
   ctor_base& operator=(const ctor_base&) noexcept = default;
   ctor_base& operator=(ctor_base&&) noexcept = default;
 };
 
-template<class T, class D>
-struct ctor_base<member_policy::move, T, D>
+template<>
+struct ctor_base<member_policy::move>
 {
   constexpr ctor_base() noexcept = default;
-
-  ctor_base(const ctor_base&) = delete;
-
-  ctor_base(ctor_base&& rhs) noexcept(std::is_nothrow_move_constructible<T>::value)
-  {
-    static_cast<D&>(*this).move_construct(std::move(static_cast<D&&>(rhs)));
-  }
-
+  constexpr ctor_base(const ctor_base&) = delete;
+  constexpr ctor_base(ctor_base&& rhs) noexcept = default;
   ctor_base& operator=(const ctor_base&) noexcept = default;
   ctor_base& operator=(ctor_base&&) noexcept = default;
 };
 
-template<member_policy, class T, class D>
+// All instantiations of assign_base are empty, trivial types that have
+// specific move/copy assignment operators deleted
+template<member_policy>
 struct assign_base;
 
-template<class T, class D>
-struct assign_base<member_policy::none, T, D>
+template<>
+struct assign_base<member_policy::none>
 {
   constexpr assign_base() noexcept = default;
-  assign_base(const assign_base&) noexcept = default;
-  assign_base(assign_base&&) noexcept = default;
+  constexpr assign_base(const assign_base&) noexcept = default;
+  constexpr assign_base(assign_base&&) noexcept = default;
   assign_base& operator=(const assign_base&) = delete;
   assign_base& operator=(assign_base&&) = delete;
 };
 
-template<class T, class D>
-struct assign_base<member_policy::move | member_policy::copy, T, D>
+template<>
+struct assign_base<member_policy::move | member_policy::copy>
 {
   constexpr assign_base() noexcept = default;
-  assign_base(const assign_base&) noexcept = default;
-  assign_base(assign_base&&) noexcept = default;
-
-  assign_base& operator=(const assign_base& rhs) noexcept(
-     and_<std::is_nothrow_copy_constructible<T>, std::is_nothrow_copy_assignable<T>>::value
-  )
-  {
-    static_cast<D&>(*this).copy_assign(static_cast<const D&>(rhs));
-    return *this;
-  }
-
-  assign_base& operator=(assign_base&& rhs) noexcept(
-     and_<std::is_nothrow_move_constructible<T>, std::is_nothrow_move_assignable<T>>::value
-  )
-  {
-    static_cast<D&>(*this).move_assign(static_cast<D&&>(rhs));
-    return *this;
-  }
+  constexpr assign_base(const assign_base&) noexcept = default;
+  constexpr assign_base(assign_base&&) noexcept = default;
+  assign_base& operator=(const assign_base& rhs) noexcept = default;
+  assign_base& operator=(assign_base&& rhs) noexcept = default;
 };
 
-template<class T, class D>
-struct assign_base<member_policy::copy, T, D>
+template<>
+struct assign_base<member_policy::copy>
 {
   constexpr assign_base() noexcept = default;
-  assign_base(const assign_base&) noexcept = default;
-  assign_base(assign_base&&) noexcept = default;
-
-  assign_base& operator=(const assign_base& rhs) noexcept(
-     and_<std::is_nothrow_copy_constructible<T>, std::is_nothrow_copy_assignable<T>>::value
-  )
-  {
-    static_cast<D&>(*this).copy_assign(static_cast<const D&>(rhs));
-    return *this;
-  }
-
+  constexpr assign_base(const assign_base&) noexcept = default;
+  constexpr assign_base(assign_base&&) noexcept = default;
+  assign_base& operator=(const assign_base& rhs) noexcept = default;
   assign_base& operator=(assign_base&&) = delete;
 };
 
-template<class T, class D>
-struct assign_base<member_policy::move, T, D>
+template<>
+struct assign_base<member_policy::move>
 {
   constexpr assign_base() noexcept = default;
-  assign_base(const assign_base&) noexcept = default;
-  assign_base(assign_base&&) noexcept = default;
-
+  constexpr assign_base(const assign_base&) noexcept = default;
+  constexpr assign_base(assign_base&&) noexcept = default;
   assign_base& operator=(const assign_base&) = delete;
-
-  assign_base& operator=(assign_base&& rhs) noexcept(
-     and_<std::is_nothrow_move_constructible<T>, std::is_nothrow_move_assignable<T>>::value
-  )
-  {
-    static_cast<D&>(*this).move_assign(static_cast<D&&>(rhs));
-    return *this;
-  }
+  assign_base& operator=(assign_base&& rhs) noexcept = default;
 };
 
-template<class T, class D>
+template<class T>
 using select_ctor_base = ctor_base<
-    (std::is_copy_constructible<T>::value ? member_policy::copy : member_policy::none) |
-    (std::is_move_constructible<T>::value ? member_policy::move : member_policy::none),
-    T, D
->;
+  (std::is_copy_constructible<T>::value ? member_policy::copy : member_policy::none) |
+  (std::is_move_constructible<T>::value ? member_policy::move : member_policy::none)>;
 
-template<class T, class D>
+template<class T>
 using select_assign_base = assign_base<
-    (and_<std::is_copy_constructible<T>, std::is_copy_assignable<T>>::value ? member_policy::copy : member_policy::none) |
-    (and_<std::is_move_constructible<T>, std::is_move_assignable<T>>::value ? member_policy::move : member_policy::none),
-    T, D
->;
+  (and_<std::is_copy_constructible<T>, std::is_copy_assignable<T>>::value ? member_policy::copy : member_policy::none) |
+  (and_<std::is_move_constructible<T>, std::is_move_assignable<T>>::value ? member_policy::move : member_policy::none)>;
 
-struct no_init_t {};
-
-constexpr no_init_t no_init{};
-
-template<class T>
-union optional_storage
-{
-  unsigned char for_value_init;
-  typename std::aligned_storage<sizeof(T), std::alignment_of<T>::value>::type actual_data;
-};
-
-template<class T>
-union literal_optional_storage
-{
-  unsigned char for_value_init;
-  typename std::remove_cv<T>::type actual_data;
-  constexpr literal_optional_storage(no_init_t) : for_value_init() {}
-  // generation of default copy constructor of raw data requires we have handling
-  // for literal_optional_storage(literal_optional_storage&) - a catch-all forwarding
-  // constructor cannot differentiate between initializing the actual_data member
-  // and that case.
-  template<typename FirstArg, class... RestArgs>
-  constexpr literal_optional_storage(typename std::enable_if<(sizeof...(RestArgs) > 0) and not std::is_convertible<literal_optional_storage, FirstArg>::value, FirstArg>::type firstarg, RestArgs&&... restargs) :
-      actual_data(firstarg, std::forward<RestArgs>(restargs)...) {}
-  constexpr literal_optional_storage(literal_optional_storage const & other) : actual_data(other.actual_data) {}
-};
-
-template<class T, bool = is_trivially_destructible<T>::value>
-class optional_data
-{
-  using raw_type = optional_storage<T>;
-
-  bool is_init_;
-  raw_type raw_data_;
-
-public:
-  constexpr optional_data() noexcept : is_init_(false), raw_data_{} {}
-
-  optional_data(const optional_data&) noexcept : is_init_(false) {}
-
-  optional_data(optional_data&&) noexcept : is_init_(false) {}
-
-  optional_data& operator=(const optional_data&) noexcept {
-    return *this;
-  }
-
-  optional_data& operator=(optional_data&&) noexcept {
-    return *this;
-  }
-
-  // NB: Actually the explicit exception-specification is not
-  // required, but the current gcc snap-shot behaves incorrect
-  // in the derived class, if not doing so.
-  ~optional_data() noexcept
-  {
-    this->destroy();
-  }
-
-  auto is_initialized() const noexcept -> bool
-  {
-    return this->is_init_;
-  }
-
-  auto raw_memory() noexcept -> void*
-  {
-    return &this->raw_data_;
-  }
-
-  auto raw_memory() const noexcept -> const void*
-  {
-    return &this->raw_data_;
-  }
-
-  auto data() noexcept -> T&
-  {
-    return *static_cast<T*>(raw_memory());
-  }
-
-  auto data() const noexcept -> const T&
-  {
-    return *static_cast<const T*>(raw_memory());
-  }
-
-  template<class... U>
-  void construct(U&&... u)
-  {
-    assert(!this->is_initialized());
-    ::new (this->raw_memory()) T(std::forward<U>(u)...);
-    this->is_init_ = true;
-  }
-
-  template<class U>
-  void assign(U&& u)
-  {
-    if (this->is_initialized())
-    {
-      this->data() = std::forward<U>(u);
-    }
-    else
-    {
-      this->construct(std::forward<U>(u));
-    }
-  }
-
-  void destroy() noexcept
-  {
-    if (this->is_init_)
-    {
-      this->data().~T();
-      this->is_init_ = false;
-    }
-  }
-};
-
-// Partial specialization for trivially-destructible types. It also
-// is a trivially-destructible type:
-template<class T>
-class optional_data<T, true>
-{
-  using raw_type = literal_optional_storage<T>;
-
-  bool is_init_;
-  raw_type raw_data_;
-
-public:
-  constexpr optional_data() noexcept : is_init_(false), raw_data_(no_init) {}
-
-  constexpr optional_data(const optional_data&) : is_init_(false), raw_data_(no_init) {}
-
-  constexpr optional_data(optional_data&&) : is_init_(false), raw_data_(no_init) {}
-
-  optional_data& operator=(const optional_data&) = default;
-
-  optional_data& operator=(optional_data&&) = default;
-
-  ~optional_data() noexcept = default;
-
-  constexpr auto is_initialized() const noexcept -> bool
-  {
-    return this->is_init_;
-  }
-
-  auto data() noexcept -> T&
-  {
-    return raw_data_.actual_data;
-  }
-
-  constexpr auto data() const noexcept -> const T&
-  {
-    return raw_data_.actual_data;
-  }
-
-  template<class... U>
-  void construct(U&&... u)
-  {
-    assert(!this->is_initialized());
-    ::new (static_cast<void*>(&raw_data_.actual_data)) T(std::forward<U>(u)...);
-    this->is_init_ = true;
-  }
-
-  template<class U>
-  void assign(U&& u)
-  {
-    if (this->is_initialized())
-    {
-      this->data() = std::forward<U>(u);
-    }
-    else
-    {
-      this->construct(std::forward<U>(u));
-    }
-  }
-
-  void destroy() noexcept
-  {
-    this->is_init_ = false;
-  }
-};
 
 template<class>
 struct is_optional_impl : std::false_type
@@ -406,75 +186,248 @@ using is_equivalent = std::is_same<
   typename std::remove_cv<typename std::remove_reference<U>::type>::type
 >;
 
-} // ns details
+// Ideally we would use the official is_trivially_copyable trait here:
+template<class T, bool = and_<
+  is_trivially_copy_constructible<T>,
+  is_trivially_copy_assignable<typename std::remove_cv<T>::type>,
+  is_trivially_destructible<T>
+ >::value
+>
+class optional_data;
 
-struct inplace_t {};
+// Partial specialization for types that are not trivial copyable
+template<class T>
+class optional_data<T, false>
+{
+  bool is_init_;
+  union {
+    unsigned char for_value_init_;
+    typename std::remove_cv<T>::type value_;
+  };
 
-constexpr inplace_t inplace{};
+public:
+  constexpr auto is_initialized() const noexcept -> bool
+  {
+    return this->is_init_;
+  }
 
-struct none_t {};
+  auto raw_memory() noexcept -> void*
+  {
+    return &this->value_;
+  }
 
-constexpr none_t none{};
+  constexpr auto raw_memory() const noexcept -> const void*
+  {
+    return &this->value_;
+  }
+
+  auto data() noexcept -> T&
+  {
+    return this->value_;
+  }
+
+  constexpr auto data() const noexcept -> const T&
+  {
+    return this->value_;
+  }
+
+  template<class... U>
+  void construct(U&&... u)
+  {
+    assert(!this->is_init_);
+    ::new (this->raw_memory()) T(std::forward<U>(u)...);
+    this->is_init_ = true;
+  }
+
+  template<class U>
+  void assign(U&& u)
+  {
+    if (this->is_init_)
+    {
+      this->data() = std::forward<U>(u);
+    }
+    else
+    {
+      this->construct(std::forward<U>(u));
+    }
+  }
+
+  void destroy() noexcept
+  {
+    if (this->is_init_)
+    {
+      this->data().~T();
+      this->is_init_ = false;
+    }
+  }
+
+  constexpr optional_data() noexcept : is_init_(false), for_value_init_() {}
+
+  template<class... Args>
+  constexpr optional_data(inplace_t, Args&&... args) : is_init_(true),
+    value_(std::forward<Args>(args)...)
+  {}
+
+  optional_data(const optional_data& rhs) noexcept(std::is_nothrow_copy_constructible<T>::value)
+  : is_init_(false)
+  {
+    if (rhs.is_initialized())
+      this->construct(rhs.data());
+  }
+
+  optional_data(optional_data&& rhs) noexcept(std::is_nothrow_move_constructible<T>::value)
+  : is_init_(false)
+  {
+    if (rhs.is_initialized())
+      this->construct(std::move(rhs.data()));
+  }
+
+  optional_data& operator=(const optional_data& rhs) noexcept(
+    and_<std::is_nothrow_copy_constructible<T>, std::is_nothrow_copy_assignable<T>>::value
+  )
+  {
+    if (rhs.is_initialized())
+      this->assign(rhs.data());
+    else
+      this->destroy();
+    return *this;
+  }
+
+  optional_data& operator=(optional_data&& rhs) noexcept(
+    and_<std::is_nothrow_move_constructible<T>, std::is_nothrow_move_assignable<T>>::value
+  )
+  {
+    if (rhs.is_initialized())
+      this->assign(std::move(rhs.data()));
+    else
+      this->destroy();
+    return *this;
+  }
+
+  // NB: Actually the explicit exception-specification is not
+  // required, but the current gcc snap-shot behaves incorrect
+  // in the derived class, if not doing so.
+  ~optional_data() noexcept
+  {
+    this->destroy();
+  }
+};
+
+// Partial specialization idfeally for trivial copyable types. It would
+// also be a trivial copyable type, once we can detect trivial special
+// move members:
+template<class T>
+class optional_data<T, true>
+{
+  bool is_init_;
+  union data_t {
+    unsigned char for_value_init_;
+    typename std::remove_cv<T>::type value_;
+    constexpr data_t() noexcept : for_value_init_() {}
+    template<class... Args>
+    constexpr data_t(inplace_t, Args&&... args)
+    : value_(std::forward<Args>(args)...) {}
+  } data_;
+
+public:
+  constexpr auto is_initialized() const noexcept -> bool
+  {
+    return this->is_init_;
+  }
+
+  auto raw_memory() noexcept -> void*
+  {
+    return &this->data_.value_;
+  }
+
+  constexpr auto raw_memory() const noexcept -> const void*
+  {
+    return &this->data_.value_;
+  }
+
+  auto data() noexcept -> T&
+  {
+    return this->data_.value_;
+  }
+
+  constexpr auto data() const noexcept -> const T&
+  {
+    return this->data_.value_;
+  }
+
+  template<class... U>
+  void construct(U&&... u)
+  {
+    assert(!this->is_init_);
+    ::new (this->raw_memory()) T(std::forward<U>(u)...);
+    this->is_init_ = true;
+  }
+
+  template<class U>
+  void assign(U&& u)
+  {
+    if (this->is_init_)
+    {
+      this->data() = std::forward<U>(u);
+    }
+    else
+    {
+      this->construct(std::forward<U>(u));
+    }
+  }
+
+  void destroy() noexcept
+  {
+    this->is_init_ = false;
+  }
+
+  constexpr optional_data() noexcept : is_init_(false) {}
+
+  template<class... Args>
+  constexpr optional_data(inplace_t, Args&&... args) : is_init_(true),
+    data_(inplace_t(), std::forward<Args>(args)...)
+  {}
+
+  optional_data(const optional_data& rhs) = default;
+
+  // Once we can detect trivial move constructors, we could default
+  // this member
+  optional_data(optional_data&& rhs) noexcept(std::is_nothrow_move_constructible<T>::value)
+  : is_init_(false)
+  {
+    if (rhs.is_initialized())
+      this->construct(std::move(rhs.data()));
+  }
+
+  optional_data& operator=(const optional_data& rhs) = default;
+
+  // Once we can detect trivial move constructors, we could default
+  // this member
+  optional_data& operator=(optional_data&& rhs) noexcept(
+    and_<std::is_nothrow_move_constructible<T>, std::is_nothrow_move_assignable<T>>::value
+  )
+  {
+    if (rhs.is_initialized())
+      this->assign(std::move(rhs.data()));
+    else
+      this->destroy();
+    return *this;
+  }
+
+  ~optional_data() noexcept = default;
+};
+
+}
 
 template<class T>
-class optional : private details::optional_data<T>,
-                 private details::select_ctor_base<T, optional<T>>,
-                 private details::select_assign_base<T, optional<T>>
+class optional : private details::select_ctor_base<T>,
+                 private details::select_assign_base<T>,
+                 private details::optional_data<T>
 {
-  using copy_type = details::select_ctor_base<T, optional>;
-  using assign_type = details::select_assign_base<T, optional>;
-  friend copy_type;
-  friend assign_type;
+  using data_type = details::optional_data<T>;
+
   template<class>
   friend class optional;
-
-  void copy_construct(const optional& rhs)
-  {
-    if (rhs.is_initialized())
-    {
-      this->construct(rhs.data());
-    }
-    else
-    {
-      assert(!this->is_initialized());
-    }
-  }
-
-  void move_construct(optional&& rhs)
-  {
-    if (rhs.is_initialized())
-    {
-      this->construct(std::move(rhs.data()));
-    }
-    else
-    {
-      assert(!this->is_initialized());
-    }
-  }
-
-  void copy_assign(const optional& rhs)
-  {
-    if (rhs.is_initialized())
-    {
-      this->assign(rhs.data());
-    }
-    else
-    {
-      this->destroy();
-    }
-  }
-
-  void move_assign(optional&& rhs)
-  {
-    if (rhs.is_initialized())
-    {
-      this->assign(std::move(rhs.data()));
-    }
-    else
-    {
-      this->destroy();
-    }
-  }
 
 public:
   using value_type = T;
@@ -486,31 +439,31 @@ public:
   template<class U,
     typename std::enable_if<
       and_<
-        not_<details::is_equivalent<U, optional<T>>>,
+        not_<details::is_equivalent<U, optional>>,
         std::is_convertible<U, T>,
         std::is_constructible<T, U>
       >::value,
       bool
     >::type = false
   >
-  optional(U&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
+  constexpr optional(U&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
+  : data_type(inplace_t(), std::forward<U>(u))
   {
-    this->construct(std::forward<U>(u));
   }
 
   template<class U,
     typename std::enable_if<
       and_<
-        not_<details::is_equivalent<U, optional<T>>>,
+        not_<details::is_equivalent<U, optional>>,
         not_<std::is_convertible<U, T>>,
         std::is_constructible<T, U>
       >::value,
       bool
     >::type = false
   >
-  explicit optional(U&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
+  explicit constexpr optional(U&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
+  : data_type(inplace_t(), std::forward<U>(u))
   {
-    this->construct(std::forward<U>(u));
   }
 
   template<class... U,
@@ -519,9 +472,9 @@ public:
       bool
     >::type = false
   >
-  optional(inplace_t, U&&... u) noexcept(std::is_nothrow_constructible<T, U...>::value)
+  constexpr optional(inplace_t, U&&... u) noexcept(std::is_nothrow_constructible<T, U...>::value)
+  : data_type(inplace_t(), std::forward<U>(u)...)
   {
-    this->construct(std::forward<U>(u)...);
   }
 
   template<class U,
@@ -535,7 +488,8 @@ public:
   >
   optional(const optional<U>& u) noexcept(std::is_nothrow_constructible<T, const U&>::value)
   {
-    this->construct(u.data());
+    if (u.is_initialized())
+      this->construct(u.data());
   }
 
   template<class U,
@@ -549,7 +503,8 @@ public:
   >
   explicit optional(const optional<U>& u) noexcept(std::is_nothrow_constructible<T, const U&>::value)
   {
-    this->construct(u.data());
+    if (u.is_initialized())
+      this->construct(u.data());
   }
 
   template<class U,
@@ -563,7 +518,8 @@ public:
   >
   optional(optional<U>&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
   {
-    this->construct(std::move(u.data()));
+    if (u.is_initialized())
+      this->construct(std::move(u.data()));
   }
 
   template<class U,
@@ -577,7 +533,8 @@ public:
   >
   explicit optional(optional<U>&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
   {
-    this->construct(std::move(u.data()));
+    if (u.is_initialized())
+      this->construct(std::move(u.data()));
   }
 
   optional& operator=(none_t) noexcept
@@ -589,9 +546,9 @@ public:
   template<class U,
     typename std::enable_if<
       and_<
-       not_<details::is_equivalent<U, optional<T>>>,
+       not_<details::is_equivalent<U, optional>>,
        std::is_constructible<T, U>,
-        std::is_assignable<T&, U>
+       std::is_assignable<T&, U>
       >::value,
       bool
     >::type = false
@@ -617,7 +574,10 @@ public:
          std::is_nothrow_assignable<T&, const U&>>::value
   )
   {
-    this->assign(u.data());
+    if (u.is_initialized())
+      this->assign(u.data());
+    else
+      this->destroy();
     return *this;
   }
 
@@ -635,7 +595,10 @@ public:
          std::is_nothrow_assignable<T&, U&&>>::value
   )
   {
-    this->assign(std::move(u.data()));
+    if (u.is_initialized())
+      this->assign(std::move(u.data()));
+    else
+      this->destroy();
     return *this;
   }
 
@@ -658,28 +621,15 @@ public:
     return this->data();
   }
 
-  auto operator*() const noexcept -> const T&
+  constexpr auto operator*() const noexcept -> const T&
   {
-    assert(this->is_initialized());
-    return this->data();
+    return (assert(this->is_initialized()), this->data());
   }
 
   constexpr explicit operator bool() const noexcept
   {
     return this->is_initialized();
   }
-
-    // if a move-only type is contained inside of an optional, the optional becomes
-    // move-only.  However, it is still possible to dereference and get the contained
-    // movable type...then move it out from under the optional without it being
-    // "notified".  the extract method lets you perform a dereference-and-move while
-    // setting the optional to none.  How to handle this situation should be reviewed.
-    inline T extract() noexcept {
-        assert(this->is_initialized());
-        T result (std::move(this->data()));
-        this->destroy();
-        return result;
-    }
 
   void swap(optional& rhs) noexcept(
     and_<is_nothrow_swappable<T>,
@@ -711,117 +661,109 @@ inline void swap(optional<T>& x, optional<T>& y) noexcept(noexcept(x.swap(y)))
 }
 
 template<class T1, class T2>
-inline bool operator==(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(*x == *y))
+constexpr bool operator==(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(*x == *y))
 {
-  if (x) {
-    return y && (*x == *y);
-  } else {
-    return !y;
-  }
+  return x ? (y && (*x == *y)) : !y;
 }
 
 template<class T1, class T2>
-inline bool operator!=(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(x == y))
+constexpr bool operator!=(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(x == y))
 {
   return !(x == y);
 }
 
 template<class T1, class T2>
-inline bool operator<(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(*x < *y))
+constexpr bool operator<(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(*x < *y))
 {
-  if (y) {
-    return !x || (*x < *y);
-  } else {
-    return false;
-  }
+  return y ? !x || (*x < *y) : false;
 }
 
 template<class T1, class T2>
-inline bool operator<=(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(y < x))
+constexpr bool operator<=(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(y < x))
 {
   return !(y < x);
 }
 
 template<class T1, class T2>
-inline bool operator>(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(y < x))
+constexpr bool operator>(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(y < x))
 {
   return (y < x);
 }
 
 template<class T1, class T2>
-inline bool operator>=(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(x < y))
+constexpr bool operator>=(const optional<T1>& x, const optional<T2>& y) noexcept(noexcept(x < y))
 {
   return !(x < y);
 }
 
 template<class T>
-inline bool operator==(const optional<T>& x, none_t) noexcept
+constexpr bool operator==(const optional<T>& x, none_t) noexcept
 {
   return !x;
 }
 
 template<class T>
-inline bool operator==(none_t, const optional<T>& x) noexcept
+constexpr bool operator==(none_t, const optional<T>& x) noexcept
 {
   return !x;
 }
 
 template<class T>
-inline bool operator!=(const optional<T>& x, none_t) noexcept
+constexpr bool operator!=(const optional<T>& x, none_t) noexcept
 {
   return static_cast<bool>(x);
 }
 
 template<class T>
-inline bool operator!=(none_t, const optional<T>& x) noexcept
+constexpr bool operator!=(none_t, const optional<T>& x) noexcept
 {
   return static_cast<bool>(x);
 }
 
 template<class T>
-inline bool operator<(const optional<T>& x, none_t) noexcept
+constexpr bool operator<(const optional<T>& x, none_t) noexcept
 {
   return false;
 }
 
 template<class T>
-inline bool operator<(none_t, const optional<T>& x) noexcept
+constexpr bool operator<(none_t, const optional<T>& x) noexcept
 {
   return static_cast<bool>(x);
 }
 
 template<class T>
-inline bool operator<=(const optional<T>& x, none_t) noexcept
+constexpr bool operator<=(const optional<T>& x, none_t) noexcept
 {
   return !x;
 }
 
 template<class T>
-inline bool operator<=(none_t, const optional<T>& x) noexcept
+constexpr bool operator<=(none_t, const optional<T>& x) noexcept
 {
   return true;
 }
 
 template<class T>
-inline bool operator>(const optional<T>& x, none_t) noexcept
+constexpr bool operator>(const optional<T>& x, none_t) noexcept
 {
   return static_cast<bool>(x);
 }
 
 template<class T>
-inline bool operator>(none_t, const optional<T>& x) noexcept
+constexpr bool operator>(none_t, const optional<T>& x) noexcept
 {
   return false;
 }
 
 template<class T>
-inline bool operator>=(const optional<T>& x, none_t) noexcept
+constexpr bool operator>=(const optional<T>& x, none_t) noexcept
 {
   return true;
 }
 
 template<class T>
-inline bool operator>=(none_t, const optional<T>& x) noexcept
+constexpr bool operator>=(none_t, const optional<T>& x) noexcept
 {
   return !x;
 }
