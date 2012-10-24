@@ -1,5 +1,7 @@
 #include "optional.hpp"
 
+#include <cstddef> // std::nullptr_t
+
 static_assert(xstd::is_trivially_destructible<int>::value, "");
 static_assert(xstd::is_trivially_destructible<xstd::optional<int>>::value, "");
 

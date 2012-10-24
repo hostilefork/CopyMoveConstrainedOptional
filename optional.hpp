@@ -10,7 +10,6 @@
 #include <type_traits>
 #include <utility>
 #include <new>
-#include <cstddef> // std::nullptr_t
 
 #include "tools.hpp"
 #include "is_swappable.hpp"
@@ -320,6 +319,9 @@ template<class T>
 class optional_data<T, true>
 {
   bool is_init_;
+  // For the moment we cannot use an anonymous union because of
+  // http://gcc.gnu.org/bugzilla/show_bug.cgi?id=54922
+  // (Just recently fixed)
   union data_t {
     unsigned char for_value_init_;
     typename std::remove_cv<T>::type value_;
@@ -401,7 +403,7 @@ public:
 
   optional_data& operator=(const optional_data& rhs) = default;
 
-  // Once we can detect trivial move constructors, we could default
+  // Once we can detect trivial move assignment operators, we could default
   // this member
   optional_data& operator=(optional_data&& rhs) noexcept(
     and_<std::is_nothrow_move_constructible<T>, std::is_nothrow_move_assignable<T>>::value
