@@ -654,6 +654,45 @@ public:
     }
   }
 
+  /**
+   * Move-constructs the T contents of *this into a temporary of type (unqualified) T,
+   * clears its own state, and returns the temporary value.
+   * The operation has the same exception-safety as T's move-construction.
+   * @pre *this == true
+   * @post !*this
+  */
+  typename std::remove_cv<T>::type
+  extract() noexcept(std::is_nothrow_move_constructible<T>::value)
+  {
+    assert(this->is_initialized());
+    typename std::remove_cv<T>::type result(std::move(this->data()));
+    this->destroy();
+    return result;
+  }
+
+  /**
+   * @dst Lvalue as destination for a possible move-assignment
+   * @return If !*this returns false, else move-assigns the T content of *this
+   *         into dst, clears its own content state and returns true.
+   * @post !*this
+   * The operation has the same exception-safety as T's move-assignment to an
+   * lvalue of U.
+  */
+  template<class U,
+    typename std::enable_if<
+      std::is_assignable<U&, T&&>::value,
+      bool
+    >::type = false
+  >
+  bool extract_to(U& dst) noexcept(std::is_nothrow_assignable<U&, T&&>::value)
+  {
+    if (!this->is_initialized())
+      return false;
+    dst = std::move(this->data());
+    this->destroy();
+    return true;
+  }
+
 };
 
 template<class T>
