@@ -253,6 +253,8 @@ public:
 
   void destroy() noexcept
   {
+    static_assert(std::is_nothrow_destructible<T>::value,
+                  "T's destructor shall not throw exceptions");
     if (this->is_init_)
     {
       this->data().~T();
@@ -312,7 +314,7 @@ public:
   }
 };
 
-// Partial specialization idfeally for trivial copyable types. It would
+// Partial specialization ideally for trivial copyable types. It would
 // also be a trivial copyable type, once we can detect trivial special
 // move members:
 template<class T>
@@ -655,7 +657,7 @@ public:
   }
 
   /**
-   * Move-constructs the T contents of *this into a temporary of type (unqualified) T,
+   * Move-constructs the T contents of *this into a temporary of type (cv-unqualified) T,
    * clears its own state, and returns the temporary value.
    * The operation has the same exception-safety as T's move-construction.
    * @pre *this == true
