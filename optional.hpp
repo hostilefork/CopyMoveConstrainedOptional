@@ -1,7 +1,7 @@
 #ifndef OPTIONAL_HPP_INCLUDED
 #define OPTIONAL_HPP_INCLUDED
 
-// Copyright 2011-2012 Daniel Kr&uuml;gler.
+// Copyright 2011-2013 Daniel Kr&uuml;gler.
 // Distributed under the Boost Software License, Version 1.0. (See
 // accompanying file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
@@ -434,6 +434,8 @@ class optional : private details::select_ctor_base<T>,
   friend class optional;
 
 public:
+  static_assert(std::is_object<T>::value, "T shall be an object type");
+
   using value_type = T;
 
   constexpr optional() noexcept = default;
