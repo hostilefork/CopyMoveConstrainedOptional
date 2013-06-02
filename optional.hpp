@@ -675,7 +675,7 @@ public:
   }
 
   /**
-   * @dst Lvalue as destination for a possible move-assignment
+   * @param[out] dst Lvalue as destination for a possible move-assignment
    * @return If !*this returns false, else move-assigns the T content of *this
    *         into dst, clears its own content state and returns true.
    * @post !*this
