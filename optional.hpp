@@ -16,6 +16,25 @@
 
 namespace xstd {
 
+// workaround: std utility functions aren't constexpr yet
+// (taken from std::experimental::optional)
+template <class T> inline constexpr T&& constexpr_forward(typename std::remove_reference<T>::type& t) noexcept
+{
+  return static_cast<T&&>(t);
+}
+
+template <class T> inline constexpr T&& constexpr_forward(typename std::remove_reference<T>::type&& t) noexcept
+{
+    static_assert(!std::is_lvalue_reference<T>::value, "!!");
+    return static_cast<T&&>(t);
+}
+
+template <class T> inline constexpr typename std::remove_reference<T>::type&& constexpr_move(T&& t) noexcept
+{
+    return static_cast<typename std::remove_reference<T>::type&&>(t);
+}
+
+
 template<class>
 class optional;
 
@@ -23,9 +42,9 @@ struct inplace_t {};
 
 constexpr inplace_t inplace{};
 
-struct none_t {};
+struct nullopt_t {};
 
-constexpr none_t none{};
+constexpr nullopt_t nullopt{};
 
 namespace details {
 
@@ -253,8 +272,8 @@ public:
 
   void destroy() noexcept
   {
-    static_assert(std::is_nothrow_destructible<T>::value,
-                  "T's destructor shall not throw exceptions");
+/*   static_assert(std::has_nothrow_destructor<T>::value,
+                  "T's destructor shall not throw exceptions"); */
     if (this->is_init_)
     {
       this->data().~T();
@@ -440,7 +459,7 @@ public:
 
   constexpr optional() noexcept = default;
 
-  constexpr optional(none_t) noexcept {}
+  constexpr optional(nullopt_t) noexcept {}
 
   template<class U,
     typename std::enable_if<
@@ -543,7 +562,7 @@ public:
       this->construct(std::move(u.data()));
   }
 
-  optional& operator=(none_t) noexcept
+  optional& operator=(nullopt_t) noexcept
   {
     this->destroy();
     return *this;
@@ -742,75 +761,89 @@ constexpr bool operator>=(const optional<T1>& x, const optional<T2>& y) noexcept
 }
 
 template<class T>
-constexpr bool operator==(const optional<T>& x, none_t) noexcept
+constexpr bool operator==(const optional<T>& x, nullopt_t) noexcept
 {
   return !x;
 }
 
 template<class T>
-constexpr bool operator==(none_t, const optional<T>& x) noexcept
+constexpr bool operator==(nullopt_t, const optional<T>& x) noexcept
 {
   return !x;
 }
 
 template<class T>
-constexpr bool operator!=(const optional<T>& x, none_t) noexcept
+constexpr bool operator!=(const optional<T>& x, nullopt_t) noexcept
 {
   return static_cast<bool>(x);
 }
 
 template<class T>
-constexpr bool operator!=(none_t, const optional<T>& x) noexcept
+constexpr bool operator!=(nullopt_t, const optional<T>& x) noexcept
 {
   return static_cast<bool>(x);
 }
 
 template<class T>
-constexpr bool operator<(const optional<T>& x, none_t) noexcept
+constexpr bool operator<(const optional<T>& x, nullopt_t) noexcept
 {
   return false;
 }
 
 template<class T>
-constexpr bool operator<(none_t, const optional<T>& x) noexcept
+constexpr bool operator<(nullopt_t, const optional<T>& x) noexcept
 {
   return static_cast<bool>(x);
 }
 
 template<class T>
-constexpr bool operator<=(const optional<T>& x, none_t) noexcept
+constexpr bool operator<=(const optional<T>& x, nullopt_t) noexcept
 {
   return !x;
 }
 
 template<class T>
-constexpr bool operator<=(none_t, const optional<T>& x) noexcept
+constexpr bool operator<=(nullopt_t, const optional<T>& x) noexcept
 {
   return true;
 }
 
 template<class T>
-constexpr bool operator>(const optional<T>& x, none_t) noexcept
+constexpr bool operator>(const optional<T>& x, nullopt_t) noexcept
 {
   return static_cast<bool>(x);
 }
 
 template<class T>
-constexpr bool operator>(none_t, const optional<T>& x) noexcept
+constexpr bool operator>(nullopt_t, const optional<T>& x) noexcept
 {
   return false;
 }
 
 template<class T>
-constexpr bool operator>=(const optional<T>& x, none_t) noexcept
+constexpr bool operator>=(const optional<T>& x, nullopt_t) noexcept
 {
   return true;
 }
 
 template<class T>
-constexpr bool operator>=(none_t, const optional<T>& x) noexcept
+constexpr bool operator>=(nullopt_t, const optional<T>& x) noexcept
 {
   return !x;
+}
+
+// make_optional from std::experimental::optional
+
+template <class T>
+constexpr optional<typename std::decay<T>::type> make_optional(T&& v)
+{
+  return optional<typename std::decay<T>::type>(constexpr_forward<T>(v));
+}
+
+template <class X>
+constexpr optional<X&> make_optional(std::reference_wrapper<X> v)
+{
+  return optional<X&>(v.get());
 }
 
 } // ns xstd
