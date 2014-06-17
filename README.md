@@ -6,27 +6,28 @@ Distributed under the Boost Software License, Version 1.0. (See
 accompanying file LICENSE_1_0.txt or copy at
 http://www.boost.org/LICENSE_1_0.txt)
 
-Alternative to boost::optional for C++11, supporting move-only types and optimizations
-by detecting type-traits.
+Alternative to boost::optional for C++11, supporting move-only types and optimizations by detecting type-traits.
 
-Notes from Brian (of http://hostilefork.com) who published the code to GitHub:
+Notes from Brian (of http://hostilefork.com) who put this code on GitHub:
 
-	"As of 2012, boost::optional is behind the times...no support for move-only types and
-	there are other issues.  Trying to patch it is difficult, because boost has a lot of
-	legacy concerns and cannot dive into c++11.  So if a codebase is purely c++11 and
-	needs a "smarter" optional, the best thing may be  to throw it out and start all over.
+> In terms of compatibility with C++11, `boost::optional` lacked support for move-only types (among some other issues).  In 2012 there did not exist a viable reference implementation for a `std::optional` from the [group discussing it](http://kojot.sggw.waw.pl/~akrzemi1/optional/tr2.optional.proposal.html), so Daniel Kr&uuml;gler was willing to share his own implementation called `xstd::optional` under a boost license.  This was not intended to compete with the standards effort, but be a stopgap measure and to experiment with some particular implementation choices.
 
-    Daniel did this, and was willing to share his code under a boost license.  His
-    desire was to share his work if it was useful--but *not* to compete with the existing
-    efforts to build std::optional for the next standard.  That work is documented and
-    discussed extensively on Google Groups:
+> As of 2014 there is a reference implementation which is being vetted and known as `std::experimental::optional`.  It is available in another GitHub repository as a single header file:
 
-    http://kojot.sggw.waw.pl/~akrzemi1/optional/tr2.optional.proposal.html
+https://github.com/akrzemi1/Optional/
 
-    Yet the present state of the reference implementation was not working for my use
-    cases.  Daniel's code worked better for me, and since there was some back-and-forth
-    regarding issues I encountered--we began tracking and exchanging our modifications
-    through version control (Git + GitHub).  Yet keep in mind the goal is not to become
-    popular, merely to inform the design of the next standard through practice.
+> Due to issues brought up during review, that specification is not slated to make it into C++14, but should be adopted in a later release.
 
-    Many thanks to Daniel for his code and his time!"
+> Generally speaking the `std::experimental::optional` managed to handle all the cases I was working with.  In order to bring the two into greater alignment, I updated `xstd::optional` to use `nullopt` instead of `none` to indicate an empty optional... and also added the `make_optional` helper function.
+    
+> I discussed a situation that `xstd::experimental::optional` was not able to handle with Andrzej Krzemie&#324;ski, where `xstd::optional` was able to work.  That specifically related to the type trait of copy constructibility not being inherited by optional from the type it is parameterized with:
+
+https://github.com/akrzemi1/Optional/issues/13
+
+> Andrzej felt that using a technique like Daniel's to provide this ability would complicate the code.  `std::vector` and other classes are subject to the same failure to answer the trait correctly, so it didn't seem like a good tradeoff to do it when the scheduled C++ [Concepts Lite](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3701.pdf) compiler feature would solve it generally.  There may be other differences, but that's the one I noticed.
+
+> As a general heads-up, one should observe that moving the contents out of an optional for a move-only type will not register that optional as being a `nullopt`.  It will consider itself to be containing a value unless you explicitly assign it `nullopt`.  There was an `extract()` function in `xstd::optional` which addressed this, but that is not currently planned for inclusion in `std::experimental::optional`:
+
+https://github.com/akrzemi1/Optional/issues/12
+
+> Many thanks to Daniel and Andrzej for their code and time (and to everyone else working through the details...)
