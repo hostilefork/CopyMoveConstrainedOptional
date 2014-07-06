@@ -334,7 +334,7 @@ void test_conv_2() {
 }
 
 constexpr xstd::optional<int> const_oi{};
-constexpr xstd::optional<int> const_oi_2{xstd::none};
+constexpr xstd::optional<int> const_oi_2{xstd::nullopt};
 
 static_assert(!const_oi && !const_oi_2, "");
 
@@ -400,29 +400,29 @@ int main()
   {
       xstd::optional<std::nullptr_t> on;
       assert(!on);
-      assert(on == xstd::none);
-      on = xstd::none;
+      assert(on == xstd::nullopt);
+      on = xstd::nullopt;
       assert(!on);
-      assert(on == xstd::none);
-      auto n = xstd::none;
+      assert(on == xstd::nullopt);
+      auto n = xstd::nullopt;
       on = n;
-      xstd::optional<std::nullptr_t> on2(xstd::none);
+      xstd::optional<std::nullptr_t> on2(xstd::nullopt);
       assert(!on2);
-      assert(on2 == xstd::none);
+      assert(on2 == xstd::nullopt);
       assert(on2 == on);
       xstd::optional<std::nullptr_t> on3(n);
       assert(!on3);
-      assert(on3 == xstd::none);
+      assert(on3 == xstd::nullopt);
       on3 = n;
       assert(!on3);
-      const xstd::none_t cn{};
-      assert(on3 == xstd::none);
+      const xstd::nullopt_t cn{};
+      assert(on3 == xstd::nullopt);
       xstd::optional<std::nullptr_t> on4(cn);
       assert(!on4);
-      assert(on4 == xstd::none);
+      assert(on4 == xstd::nullopt);
       on4 = cn;
       assert(!on4);
-      assert(on4 == xstd::none);
+      assert(on4 == xstd::nullopt);
   }
 }
 
