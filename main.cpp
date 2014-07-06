@@ -415,7 +415,7 @@ int main()
       assert(on3 == xstd::nullopt);
       on3 = n;
       assert(!on3);
-      const xstd::nullopt_t cn{};
+      const xstd::nullopt_t cn{ xstd::nullopt };
       assert(on3 == xstd::nullopt);
       xstd::optional<std::nullptr_t> on4(cn);
       assert(!on4);

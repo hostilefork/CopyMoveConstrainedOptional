@@ -19,20 +19,20 @@ namespace xstd {
 
 // workaround: std utility functions aren't constexpr yet
 // (taken from std::experimental::optional)
-template <class T> 
+template <class T>
 constexpr T&& forward(typename std::remove_reference<T>::type& t) noexcept
 {
   return static_cast<T&&>(t);
 }
 
-template <class T> 
+template <class T>
 constexpr T&& forward(typename std::remove_reference<T>::type&& t) noexcept
 {
   static_assert(!std::is_lvalue_reference<T>::value, "This overload doesn't accept lvalue references");
   return static_cast<T&&>(t);
 }
 
-template <class T> 
+template <class T>
 constexpr typename std::remove_reference<T>::type&& move(T&& t) noexcept
 {
   return static_cast<typename std::remove_reference<T>::type&&>(t);
@@ -45,13 +45,17 @@ struct inplace_t {};
 
 constexpr inplace_t inplace{};
 
-struct nullopt_t {};
-
-constexpr nullopt_t nullopt{};
-
-class bad_optional_access : public std::logic_error 
+struct nullopt_t
 {
-public: 
+  enum class init_t { value };
+  constexpr nullopt_t(init_t) {}
+};
+
+constexpr nullopt_t nullopt{ nullopt_t::init_t::value };
+
+class bad_optional_access : public std::logic_error
+{
+public:
   bad_optional_access() : std::logic_error("invalid access to empty optional") {}
 };
 
@@ -262,7 +266,7 @@ public:
   void construct(U&&... u)
   {
     assert(!this->is_init_);
-    ::new (this->raw_memory()) T(std::forward<U>(u)...);
+    ::new (this->raw_memory()) T(xstd::forward<U>(u)...);
     this->is_init_ = true;
   }
 
@@ -271,11 +275,11 @@ public:
   {
     if (this->is_init_)
     {
-      this->data() = std::forward<U>(u);
+      this->data() = xstd::forward<U>(u);
     }
     else
     {
-      this->construct(std::forward<U>(u));
+      this->construct(xstd::forward<U>(u));
     }
   }
 
@@ -308,7 +312,7 @@ public:
   : is_init_(false)
   {
     if (rhs.is_initialized())
-      this->construct(std::move(rhs.data()));
+      this->construct(xstd::move(rhs.data()));
   }
 
   optional_data& operator=(const optional_data& rhs) noexcept(
@@ -327,7 +331,7 @@ public:
   )
   {
     if (rhs.is_initialized())
-      this->assign(std::move(rhs.data()));
+      this->assign(xstd::move(rhs.data()));
     else
       this->destroy();
     return *this;
@@ -391,7 +395,7 @@ public:
   void construct(U&&... u)
   {
     assert(!this->is_init_);
-    ::new (this->raw_memory()) T(std::forward<U>(u)...);
+    ::new (this->raw_memory()) T(xstd::forward<U>(u)...);
     this->is_init_ = true;
   }
 
@@ -400,11 +404,11 @@ public:
   {
     if (this->is_init_)
     {
-      this->data() = std::forward<U>(u);
+      this->data() = xstd::forward<U>(u);
     }
     else
     {
-      this->construct(std::forward<U>(u));
+      this->construct(xstd::forward<U>(u));
     }
   }
 
@@ -428,7 +432,7 @@ public:
   : is_init_(false)
   {
     if (rhs.is_initialized())
-      this->construct(std::move(rhs.data()));
+      this->construct(xstd::move(rhs.data()));
   }
 
   optional_data& operator=(const optional_data& rhs) = default;
@@ -440,7 +444,7 @@ public:
   )
   {
     if (rhs.is_initialized())
-      this->assign(std::move(rhs.data()));
+      this->assign(xstd::move(rhs.data()));
     else
       this->destroy();
     return *this;
@@ -457,7 +461,7 @@ class optional : private details::select_ctor_base<T>,
                  private details::optional_data<T>
 {
   using data_type = details::optional_data<T>;
-  
+
   using vt_wo_cv = typename std::remove_cv<T>::type;
 
   template<class>
@@ -465,9 +469,9 @@ class optional : private details::select_ctor_base<T>,
 
 public:
   static_assert(std::is_object<T>::value, "T shall be an object type");
-  
-  static_assert(and_<not_<std::is_same<vt_wo_cv, nullopt_t>>, 
-                     not_<std::is_same<vt_wo_cv, inplace_t>>>::value, 
+
+  static_assert(and_<not_<std::is_same<vt_wo_cv, nullopt_t>>,
+                     not_<std::is_same<vt_wo_cv, inplace_t>>>::value,
                 "Invalid T");
 
   using value_type = T;
@@ -559,7 +563,7 @@ public:
   optional(optional<U>&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
   {
     if (u.is_initialized())
-      this->construct(std::move(u.data()));
+      this->construct(xstd::move(u.data()));
   }
 
   template<class U,
@@ -574,7 +578,7 @@ public:
   explicit optional(optional<U>&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
   {
     if (u.is_initialized())
-      this->construct(std::move(u.data()));
+      this->construct(xstd::move(u.data()));
   }
 
   optional& operator=(nullopt_t) noexcept
@@ -596,7 +600,7 @@ public:
   optional& operator=(U&& u) noexcept(and_<std::is_nothrow_constructible<T, U>,
                                       std::is_nothrow_assignable<T&, U>>::value)
   {
-    this->assign(std::forward<U>(u));
+    this->assign(xstd::forward<U>(u));
     return *this;
   }
 
@@ -636,7 +640,7 @@ public:
   )
   {
     if (u.is_initialized())
-      this->assign(std::move(u.data()));
+      this->assign(xstd::move(u.data()));
     else
       this->destroy();
     return *this;
@@ -651,7 +655,7 @@ public:
   optional& emplace(U&&... u) noexcept(std::is_nothrow_constructible<T, U...>::value)
   {
     this->destroy();
-    this->construct(std::forward<U>(u)...);
+    this->construct(xstd::forward<U>(u)...);
     return *this;
   }
 
@@ -691,12 +695,12 @@ public:
       if (rhs.is_initialized()) {
         swap(this->data(), rhs.data());
       } else {
-        rhs.assign(std::move(this->data()));
+        rhs.assign(xstd::move(this->data()));
         this->destroy();
       }
     } else {
       if (rhs.is_initialized()) {
-        this->assign(std::move(rhs.data()));
+        this->assign(xstd::move(rhs.data()));
         rhs.destroy();
       }
     }
@@ -713,7 +717,7 @@ public:
   extract() noexcept(std::is_nothrow_move_constructible<T>::value)
   {
     assert(this->is_initialized());
-    typename std::remove_cv<T>::type result(std::move(this->data()));
+    typename std::remove_cv<T>::type result(xstd::move(this->data()));
     this->destroy();
     return result;
   }
@@ -736,7 +740,7 @@ public:
   {
     if (!this->is_initialized())
       return false;
-    dst = std::move(this->data());
+    dst = xstd::move(this->data());
     this->destroy();
     return true;
   }
