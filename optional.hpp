@@ -10,6 +10,7 @@
 #include <type_traits>
 #include <utility>
 #include <new>
+#include <stdexcept>
 
 #include "tools.hpp"
 #include "is_swappable.hpp"
@@ -18,22 +19,24 @@ namespace xstd {
 
 // workaround: std utility functions aren't constexpr yet
 // (taken from std::experimental::optional)
-template <class T> inline constexpr T&& constexpr_forward(typename std::remove_reference<T>::type& t) noexcept
+template <class T> 
+constexpr T&& forward(typename std::remove_reference<T>::type& t) noexcept
 {
   return static_cast<T&&>(t);
 }
 
-template <class T> inline constexpr T&& constexpr_forward(typename std::remove_reference<T>::type&& t) noexcept
+template <class T> 
+constexpr T&& forward(typename std::remove_reference<T>::type&& t) noexcept
 {
-    static_assert(!std::is_lvalue_reference<T>::value, "!!");
-    return static_cast<T&&>(t);
+  static_assert(!std::is_lvalue_reference<T>::value, "This overload doesn't accept lvalue references");
+  return static_cast<T&&>(t);
 }
 
-template <class T> inline constexpr typename std::remove_reference<T>::type&& constexpr_move(T&& t) noexcept
+template <class T> 
+constexpr typename std::remove_reference<T>::type&& move(T&& t) noexcept
 {
-    return static_cast<typename std::remove_reference<T>::type&&>(t);
+  return static_cast<typename std::remove_reference<T>::type&&>(t);
 }
-
 
 template<class>
 class optional;
@@ -45,6 +48,12 @@ constexpr inplace_t inplace{};
 struct nullopt_t {};
 
 constexpr nullopt_t nullopt{};
+
+class bad_optional_access : public std::logic_error 
+{
+public: 
+  bad_optional_access() : std::logic_error("invalid access to empty optional") {}
+};
 
 namespace details {
 
@@ -285,7 +294,7 @@ public:
 
   template<class... Args>
   constexpr optional_data(inplace_t, Args&&... args) : is_init_(true),
-    value_(std::forward<Args>(args)...)
+    value_(xstd::forward<Args>(args)...)
   {}
 
   optional_data(const optional_data& rhs) noexcept(std::is_nothrow_copy_constructible<T>::value)
@@ -349,7 +358,7 @@ class optional_data<T, true>
     constexpr data_t() noexcept : for_value_init_() {}
     template<class... Args>
     constexpr data_t(inplace_t, Args&&... args)
-    : value_(std::forward<Args>(args)...) {}
+    : value_(xstd::forward<Args>(args)...) {}
   } data_;
 
 public:
@@ -408,7 +417,7 @@ public:
 
   template<class... Args>
   constexpr optional_data(inplace_t, Args&&... args) : is_init_(true),
-    data_(inplace_t(), std::forward<Args>(args)...)
+    data_(inplace_t(), xstd::forward<Args>(args)...)
   {}
 
   optional_data(const optional_data& rhs) = default;
@@ -448,12 +457,18 @@ class optional : private details::select_ctor_base<T>,
                  private details::optional_data<T>
 {
   using data_type = details::optional_data<T>;
+  
+  using vt_wo_cv = typename std::remove_cv<T>::type;
 
   template<class>
   friend class optional;
 
 public:
   static_assert(std::is_object<T>::value, "T shall be an object type");
+  
+  static_assert(and_<not_<std::is_same<vt_wo_cv, nullopt_t>>, 
+                     not_<std::is_same<vt_wo_cv, inplace_t>>>::value, 
+                "Invalid T");
 
   using value_type = T;
 
@@ -472,7 +487,7 @@ public:
     >::type = false
   >
   constexpr optional(U&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
-  : data_type(inplace_t(), std::forward<U>(u))
+  : data_type(inplace_t(), xstd::forward<U>(u))
   {
   }
 
@@ -487,7 +502,7 @@ public:
     >::type = false
   >
   explicit constexpr optional(U&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
-  : data_type(inplace_t(), std::forward<U>(u))
+  : data_type(inplace_t(), xstd::forward<U>(u))
   {
   }
 
@@ -498,7 +513,7 @@ public:
     >::type = false
   >
   constexpr optional(inplace_t, U&&... u) noexcept(std::is_nothrow_constructible<T, U...>::value)
-  : data_type(inplace_t(), std::forward<U>(u)...)
+  : data_type(inplace_t(), xstd::forward<U>(u)...)
   {
   }
 
@@ -649,6 +664,16 @@ public:
   constexpr auto operator*() const noexcept -> const T&
   {
     return (assert(this->is_initialized()), this->data());
+  }
+
+  auto value() -> T&
+  {
+    return this->is_initialized() ? this->data() : throw bad_optional_access();
+  }
+
+  constexpr auto value() const -> const T&
+  {
+    return this->is_initialized() ? this->data() : throw bad_optional_access();
   }
 
   constexpr explicit operator bool() const noexcept
@@ -837,13 +862,7 @@ constexpr bool operator>=(nullopt_t, const optional<T>& x) noexcept
 template <class T>
 constexpr optional<typename std::decay<T>::type> make_optional(T&& v)
 {
-  return optional<typename std::decay<T>::type>(constexpr_forward<T>(v));
-}
-
-template <class X>
-constexpr optional<X&> make_optional(std::reference_wrapper<X> v)
-{
-  return optional<X&>(v.get());
+  return optional<typename std::decay<T>::type>(xstd::forward<T>(v));
 }
 
 } // ns xstd
