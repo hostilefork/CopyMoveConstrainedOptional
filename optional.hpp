@@ -41,14 +41,20 @@ constexpr typename std::remove_reference<T>::type&& move(T&& t) noexcept
 template<class>
 class optional;
 
-struct inplace_t {};
+struct in_place_t {};
 
-constexpr inplace_t inplace{};
+constexpr in_place_t in_place = {};
+
+// Deprecated
+struct inplace_t : in_place_t {};
+
+// Deprecated
+constexpr inplace_t inplace = {};
 
 struct nullopt_t
 {
   enum class init_t { value };
-  constexpr nullopt_t(init_t) {}
+  constexpr explicit nullopt_t(init_t) {}
 };
 
 constexpr nullopt_t nullopt{ nullopt_t::init_t::value };
@@ -56,7 +62,7 @@ constexpr nullopt_t nullopt{ nullopt_t::init_t::value };
 class bad_optional_access : public std::logic_error
 {
 public:
-  bad_optional_access() : std::logic_error("invalid access to empty optional") {}
+  bad_optional_access() : std::logic_error("bad optional access") {}
 };
 
 namespace details {
@@ -297,7 +303,7 @@ public:
   constexpr optional_data() noexcept : is_init_(false), for_value_init_() {}
 
   template<class... Args>
-  constexpr optional_data(inplace_t, Args&&... args) : is_init_(true),
+  constexpr optional_data(in_place_t, Args&&... args) : is_init_(true),
     value_(xstd::forward<Args>(args)...)
   {}
 
@@ -361,7 +367,7 @@ class optional_data<T, true>
     typename std::remove_cv<T>::type value_;
     constexpr data_t() noexcept : for_value_init_() {}
     template<class... Args>
-    constexpr data_t(inplace_t, Args&&... args)
+    constexpr data_t(in_place_t, Args&&... args)
     : value_(xstd::forward<Args>(args)...) {}
   } data_;
 
@@ -420,8 +426,8 @@ public:
   constexpr optional_data() noexcept : is_init_(false) {}
 
   template<class... Args>
-  constexpr optional_data(inplace_t, Args&&... args) : is_init_(true),
-    data_(inplace_t(), xstd::forward<Args>(args)...)
+  constexpr optional_data(in_place_t, Args&&... args) : is_init_(true),
+    data_(in_place_t(), xstd::forward<Args>(args)...)
   {}
 
   optional_data(const optional_data& rhs) = default;
@@ -471,7 +477,7 @@ public:
   static_assert(std::is_object<T>::value, "T shall be an object type");
 
   static_assert(and_<not_<std::is_same<vt_wo_cv, nullopt_t>>,
-                     not_<std::is_same<vt_wo_cv, inplace_t>>>::value,
+                     not_<std::is_same<vt_wo_cv, in_place_t>>>::value,
                 "Invalid T");
 
   using value_type = T;
@@ -491,7 +497,7 @@ public:
     >::type = false
   >
   constexpr optional(U&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
-  : data_type(inplace_t(), xstd::forward<U>(u))
+  : data_type(in_place_t(), xstd::forward<U>(u))
   {
   }
 
@@ -506,7 +512,7 @@ public:
     >::type = false
   >
   explicit constexpr optional(U&& u) noexcept(std::is_nothrow_constructible<T, U>::value)
-  : data_type(inplace_t(), xstd::forward<U>(u))
+  : data_type(in_place_t(), xstd::forward<U>(u))
   {
   }
 
@@ -516,8 +522,8 @@ public:
       bool
     >::type = false
   >
-  constexpr optional(inplace_t, U&&... u) noexcept(std::is_nothrow_constructible<T, U...>::value)
-  : data_type(inplace_t(), xstd::forward<U>(u)...)
+  constexpr optional(in_place_t, U&&... u) noexcept(std::is_nothrow_constructible<T, U...>::value)
+  : data_type(in_place_t(), xstd::forward<U>(u)...)
   {
   }
 
