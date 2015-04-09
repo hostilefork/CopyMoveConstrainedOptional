@@ -15,7 +15,8 @@ namespace private_std_swap_area {
 
 using std::swap;
 
-struct do_is_swappable {
+struct do_is_swappable
+{
   template<class T, class =
     decltype(swap(std::declval<T&>(), std::declval<T&>()))
   >
@@ -25,7 +26,8 @@ struct do_is_swappable {
   static std::false_type test(...);
 };
 
-struct do_is_nothrow_swappable {
+struct do_is_nothrow_swappable
+{
   template<class T>
   static auto test(int) -> std::integral_constant<bool,
     noexcept(swap(std::declval<T&>(), std::declval<T&>()))
@@ -35,7 +37,8 @@ struct do_is_nothrow_swappable {
   static std::false_type test(...);
 };
 
-struct do_is_swappable_with {
+struct do_is_swappable_with
+{
   template<class T, class U
   , class =
     decltype(swap(std::declval<T>(), std::declval<U>()))
@@ -48,7 +51,8 @@ struct do_is_swappable_with {
   static std::false_type test(...);
 };
 
-struct do_is_nothrow_swappable_with {
+struct do_is_nothrow_swappable_with
+{
   template<class T, class U>
   static auto test(int) -> std::integral_constant<bool,
     noexcept(swap(std::declval<T>(), std::declval<U>()))
@@ -80,21 +84,9 @@ struct is_swappable_with_impl : decltype(
 )
 {};
 
-template<class T>
-struct is_swappable_with_impl<T&, T&> : decltype(
-  private_std_swap_area::do_is_swappable::test<T&>(0)
-)
-{};
-
 template<class T, class U>
 struct is_nothrow_swappable_with_impl : decltype(
   private_std_swap_area::do_is_nothrow_swappable_with::test<T, U>(0)
-)
-{};
-
-template<class T>
-struct is_nothrow_swappable_with_impl<T&, T&> : decltype(
-  private_std_swap_area::do_is_nothrow_swappable::test<T&>(0)
 )
 {};
 
